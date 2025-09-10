@@ -24,7 +24,6 @@ namespace perla_metro_route_service.src.Data
                 })
                 RETURN r
             ";
-
             using var session = _driver.AsyncSession();
             await session.ExecuteWriteAsync(async tx =>
             {
@@ -106,6 +105,49 @@ namespace perla_metro_route_service.src.Data
                         .ToList(),
                     IsActive = node.Properties["IsActive"].As<bool>()
                 };
+            });
+        }
+
+        public async Task UpdateRouteAsync(Route route)
+        {
+            var query = @"
+                MATCH (r:Route { Id: $Id })
+                SET r.OriginStation = $OriginStation,
+                    r.DestinationStation = $DestinationStation,
+                    r.DepartureTime = $DepartureTime,
+                    r.ArrivalTime = $ArrivalTime,
+                    r.InterludeTimes = $InterludeTimes,
+                    r.IsActive = $IsActive
+                RETURN r
+            ";
+
+            using var session = _driver.AsyncSession();
+            await session.ExecuteWriteAsync(async tx =>
+            {
+                await tx.RunAsync(query, new
+                {
+                    route.Id,
+                    route.OriginStation,
+                    route.DestinationStation,
+                    DepartureTime = route.DepartureTime.ToString("o"),
+                    ArrivalTime = route.ArrivalTime.ToString("o"),
+                    InterludeTimes = route.interludeTimes.Select(t => t.ToString("o")).ToList(),
+                    route.IsActive
+                });
+            });
+        }
+        public async Task DeleteRouteAsync(string id)
+        {
+            var query = @"
+                MATCH (r:Route { Id: $id })
+                SET r.IsActive = $IsActive
+                RETURN r
+            ";
+
+            using var session = _driver.AsyncSession();
+            await session.ExecuteWriteAsync(async tx =>
+            {
+                await tx.RunAsync(query, new { id });
             });
         }
         public void Dispose()

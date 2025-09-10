@@ -1,3 +1,9 @@
+using perla_metro_route_service.src.Data;
+using Route = perla_metro_route_service.src.Models.Route;
+
+DataContext dataContext = new DataContext("neo4j://localhost:7687", "neo4j", "12345678");
+
+await dataContext.DeleteRouteAsync("828");
 
 var builder = WebApplication.CreateBuilder(args);
 
