@@ -9,7 +9,22 @@ namespace perla_metro_route_service.src.Data
         public DataContext(string uri, string user, string password)
         {
             _driver = GraphDatabase.Driver(uri, AuthTokens.Basic(user, password));
+            CreateConstraintsAsync().Wait();
         }
+        private async Task CreateConstraintsAsync()
+        {
+            var query = @"
+                CREATE CONSTRAINT route_id_unique IF NOT EXISTS
+                FOR (r:Route)
+                REQUIRE r.Id IS UNIQUE
+            ";
+            using var session = _driver.AsyncSession();
+            await session.ExecuteWriteAsync(async tx =>
+            {
+                await tx.RunAsync(query);
+            });
+        }
+
         public async Task CreateRouteAsync(Route route)
         {
             var query = @"
@@ -24,56 +39,80 @@ namespace perla_metro_route_service.src.Data
                 })
                 RETURN r
             ";
-            using var session = _driver.AsyncSession();
-            await session.ExecuteWriteAsync(async tx =>
+            try
             {
-                await tx.RunAsync(query, new
+                using var session = _driver.AsyncSession();
+                await session.ExecuteWriteAsync(async tx =>
                 {
-                    route.Id,
-                    route.OriginStation,
-                    route.DestinationStation,
-                    DepartureTime = route.DepartureTime.ToString("o"),
-                    ArrivalTime = route.ArrivalTime.ToString("o"),
-                    InterludeTimes = route.interludeTimes.Select(t => t.ToString("o")).ToList(),
-                    route.IsActive
+                    await tx.RunAsync(query, new
+                    {
+                        route.Id,
+                        route.OriginStation,
+                        route.DestinationStation,
+                        DepartureTime = route.DepartureTime.ToString("o"),
+                        ArrivalTime = route.ArrivalTime.ToString("o"),
+                        InterludeTimes = route.interludeTimes.Select(t => t.ToString("o")).ToList(),
+                        route.IsActive
+                    });
                 });
-            });
+            }
+            catch (Exception ex)
+            {
+                if (ex.Message.Contains("already exists"))
+                {
+                    Console.WriteLine($"Route with Id {route.Id} already exists.");
+                    return;
+                }
+                throw;
+            }
         }
 
         public async Task<List<Route>> GetAllRoutesAsync()
         {
             var query = @"MATCH (r:Route) RETURN r";
 
-            using var session = _driver.AsyncSession();
-            return await session.ExecuteReadAsync(async tx =>
+            try
             {
-                var cursor = await tx.RunAsync(query);
-                var records = await cursor.ToListAsync();
-
-                var routes = new List<Route>();
-
-                foreach (var record in records)
+                using var session = _driver.AsyncSession();
+                return await session.ExecuteReadAsync(async tx =>
                 {
-                    var node = record["r"].As<INode>();
+                    var cursor = await tx.RunAsync(query);
+                    var records = await cursor.ToListAsync();
 
-                    var route = new Route
+                    var routes = new List<Route>();
+
+                    foreach (var record in records)
                     {
-                        Id = node.Properties["Id"].As<string>(),
-                        OriginStation = node.Properties["OriginStation"].As<string>(),
-                        DestinationStation = node.Properties["DestinationStation"].As<string>(),
-                        DepartureTime = DateTime.Parse(node.Properties["DepartureTime"].As<string>()),
-                        ArrivalTime = DateTime.Parse(node.Properties["ArrivalTime"].As<string>()),
-                        interludeTimes = node.Properties.ContainsKey("InterludeTimes")
-                            ? node.Properties["InterludeTimes"].As<List<object>>()
-                                .Select(x => DateTime.Parse(x.ToString()!))
-                                .ToList()
-                            : new List<DateTime>(),
-                        IsActive = node.Properties["IsActive"].As<bool>()
-                    };
-                    routes.Add(route);
+                        var node = record["r"].As<INode>();
+
+                        var route = new Route
+                        {
+                            Id = node.Properties["Id"].As<string>(),
+                            OriginStation = node.Properties["OriginStation"].As<string>(),
+                            DestinationStation = node.Properties["DestinationStation"].As<string>(),
+                            DepartureTime = DateTime.Parse(node.Properties["DepartureTime"].As<string>()),
+                            ArrivalTime = DateTime.Parse(node.Properties["ArrivalTime"].As<string>()),
+                            interludeTimes = node.Properties.ContainsKey("InterludeTimes")
+                                ? node.Properties["InterludeTimes"].As<List<object>>()
+                                    .Select(x => DateTime.Parse(x.ToString()!))
+                                    .ToList()
+                                : new List<DateTime>(),
+                            IsActive = node.Properties["IsActive"].As<bool>()
+                        };
+                        routes.Add(route);
+                    }
+                    return routes;
+                });
+            }
+            catch (Exception ex)
+            {
+                if (ex.Message.Contains("No such label"))
+                {
+                    Console.WriteLine("No routes found in the database.");
+                    return new List<Route>();
                 }
-                return routes;
-            });
+                throw;
+            }
         }
 
         public async Task<Route?> GetRouteByIdAsync(string id)
@@ -83,29 +122,41 @@ namespace perla_metro_route_service.src.Data
                 RETURN r
             ";
 
-            using var session = _driver.AsyncSession();
-            return await session.ExecuteReadAsync(async tx =>
+            try
             {
-                var cursor = await tx.RunAsync(query, new { id });
-                var records = await cursor.ToListAsync();
 
-                if (records.Count == 0) return null;
-
-                var node = records[0]["r"].As<INode>();
-
-                return new Route
+                using var session = _driver.AsyncSession();
+                return await session.ExecuteReadAsync(async tx =>
                 {
-                    Id = node.Properties["Id"].As<string>(),
-                    OriginStation = node.Properties["OriginStation"].As<string>(),
-                    DestinationStation = node.Properties["DestinationStation"].As<string>(),
-                    DepartureTime = DateTime.Parse(node.Properties["DepartureTime"].As<string>()),
-                    ArrivalTime = DateTime.Parse(node.Properties["ArrivalTime"].As<string>()),
-                    interludeTimes = node.Properties["InterludeTimes"].As<List<object>>()
-                        .Select(x => DateTime.Parse(x.ToString()!))
-                        .ToList(),
-                    IsActive = node.Properties["IsActive"].As<bool>()
-                };
-            });
+                    var cursor = await tx.RunAsync(query, new { id });
+                    var records = await cursor.ToListAsync();
+
+                    if (records.Count == 0) return null;
+
+                    var node = records[0]["r"].As<INode>();
+
+                    return new Route
+                    {
+                        Id = node.Properties["Id"].As<string>(),
+                        OriginStation = node.Properties["OriginStation"].As<string>(),
+                        DestinationStation = node.Properties["DestinationStation"].As<string>(),
+                        DepartureTime = DateTime.Parse(node.Properties["DepartureTime"].As<string>()),
+                        ArrivalTime = DateTime.Parse(node.Properties["ArrivalTime"].As<string>()),
+                        interludeTimes = node.Properties["InterludeTimes"].As<List<object>>()
+                            .Select(x => DateTime.Parse(x.ToString()!))
+                            .ToList(),
+                        IsActive = node.Properties["IsActive"].As<bool>()
+                    };
+                });
+            } catch (Exception ex)
+            {
+                if (ex.Message.Contains("No such label"))
+                {
+                    Console.WriteLine($"No route found with Id {id}.");
+                    return null;
+                }
+                throw;
+            }
         }
 
         public async Task UpdateRouteAsync(Route route)
@@ -121,20 +172,31 @@ namespace perla_metro_route_service.src.Data
                 RETURN r
             ";
 
-            using var session = _driver.AsyncSession();
-            await session.ExecuteWriteAsync(async tx =>
+            try
             {
-                await tx.RunAsync(query, new
+
+                using var session = _driver.AsyncSession();
+                await session.ExecuteWriteAsync(async tx =>
                 {
-                    route.Id,
-                    route.OriginStation,
-                    route.DestinationStation,
-                    DepartureTime = route.DepartureTime.ToString("o"),
-                    ArrivalTime = route.ArrivalTime.ToString("o"),
-                    InterludeTimes = route.interludeTimes.Select(t => t.ToString("o")).ToList(),
-                    route.IsActive
+                    await tx.RunAsync(query, new
+                    {
+                        route.Id,
+                        route.OriginStation,
+                        route.DestinationStation,
+                        DepartureTime = route.DepartureTime.ToString("o"),
+                        ArrivalTime = route.ArrivalTime.ToString("o"),
+                        InterludeTimes = route.interludeTimes.Select(t => t.ToString("o")).ToList(),
+                        route.IsActive
+                    });
                 });
-            });
+            } catch (Exception ex) {
+                if (ex.Message.Contains("No such label"))
+                {
+                    Console.WriteLine($"No route found with Id {route.Id}.");
+                    return;
+                }
+                throw;
+            }
         }
         public async Task DeleteRouteAsync(string id)
         {
@@ -144,11 +206,24 @@ namespace perla_metro_route_service.src.Data
                 RETURN r
             ";
 
-            using var session = _driver.AsyncSession();
-            await session.ExecuteWriteAsync(async tx =>
+            try
             {
-                await tx.RunAsync(query, new { id });
-            });
+
+                using var session = _driver.AsyncSession();
+                await session.ExecuteWriteAsync(async tx =>
+                {
+                    await tx.RunAsync(query, new { id, IsActive = false });
+                });
+            }
+            catch (Exception ex)
+            {
+                if (ex.Message.Contains("No such label"))
+                {
+                    Console.WriteLine($"No route found with Id {id}.");
+                    return;
+                }
+                throw;
+            }
         }
         public void Dispose()
         {
