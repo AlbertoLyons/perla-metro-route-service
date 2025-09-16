@@ -7,12 +7,12 @@ namespace perla_metro_route_service.src.Models
 {
     public class Route
     {
-        public string Id { get; set; } = "";
-        public string OriginStation { get; set; } = "";
-        public string DestinationStation { get; set; } = "";
-        public DateTime DepartureTime { get; set; } = DateTime.MinValue;
-        public DateTime ArrivalTime { get; set; } = DateTime.MinValue;
-        public List<DateTime> InterludeTimes { get; set; } = new List<DateTime>();
-        public bool IsActive { get; set; } = true;
+        public required string Id { get; set; }
+        public required string OriginStation { get; set; }
+        public required string DestinationStation { get; set; }
+        public required DateTime DepartureTime { get; set; }
+        public required DateTime ArrivalTime { get; set; }
+        public required List<DateTime> InterludeTimes { get; set; } = new List<DateTime>();
+        public required bool IsActive { get; set; } = true;
     }
 }
