@@ -182,9 +182,9 @@ namespace perla_metro_route_service.src.repositories
                         route.Id,
                         route.OriginStation,
                         route.DestinationStation,
-                        DepartureTime = route.DepartureTime.ToString("o"),
-                        ArrivalTime = route.ArrivalTime.ToString("o"),
-                        InterludeTimes = route.InterludeTimes.Select(t => t.ToString("o")).ToList(),
+                        DepartureTime = route.DepartureTime.Hours + ":" + route.DepartureTime.Minutes,
+                        ArrivalTime = route.ArrivalTime.Hours + ":" + route.ArrivalTime.Minutes,
+                        InterludeTimes = route.InterludeTimes.Select(t => t.Hours + ":" + t.Minutes).ToList(),
                         route.IsActive
                     });
                 });
