@@ -39,28 +39,6 @@ db-down:
 	@docker stop db-neo4j 2>/dev/null || echo "$(YELLOW)Container was not running$(NC)"
 	@echo "$(GREEN)Neo4j stopped$(NC)"
 
-# Create new migration
-migrate-add:
-	@echo $(GREEN)Creating new migration...$(NC)
-	@dotnet ef migrations add $(name)
-	@echo $(GREEN)Migration created$(NC)
-	@echo $(YELLOW)Remember to update the database with 'make db-update'$(NC)
-
-# Apply database migrations
-db-update:
-	@echo "$(GREEN)Applying database migrations...$(NC)"
-	@dotnet ef database update
-	@echo "$(GREEN)Migrations applied$(NC)"
-
-# Remove last migration
-migrate-remove:
-	@echo "$(RED)Removing last migration...$(NC)"
-	@echo "$(YELLOW)First reverting migration in database...$(NC)"
-	@dotnet ef database update 0
-	@echo "$(YELLOW)Now removing migration file...$(NC)"
-	@dotnet ef migrations remove
-	@echo "$(GREEN)Migration removed$(NC)"
-
 # Run the application
 run:
 	@echo "$(GREEN)Starting application with watch (no hot reload)...$(NC)"

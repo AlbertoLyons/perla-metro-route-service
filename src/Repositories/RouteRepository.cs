@@ -47,12 +47,12 @@ namespace perla_metro_route_service.src.repositories
                 {
                     await tx.RunAsync(query, new
                     {
-                        route.Id,
+                        Id = route.Id.ToString(),
                         route.OriginStation,
                         route.DestinationStation,
-                        DepartureTime = route.DepartureTime.ToString("o"),
-                        ArrivalTime = route.ArrivalTime.ToString("o"),
-                        InterludeTimes = route.InterludeTimes.Select(t => t.ToString("o")).ToList(),
+                        DepartureTime = route.DepartureTime.Hours + ":" + route.DepartureTime.Minutes,
+                        ArrivalTime = route.ArrivalTime.Hours + ":" + route.ArrivalTime.Minutes,
+                        InterludeTimes = route.InterludeTimes.Select(t => t.Hours + ":" + t.Minutes).ToList(),
                         route.IsActive
                     });
                 });
@@ -87,16 +87,16 @@ namespace perla_metro_route_service.src.repositories
 
                         var route = new Route
                         {
-                            Id = node.Properties["Id"].As<string>(),
+                            Id = Guid.Parse(node.Properties["Id"].As<string>()),
                             OriginStation = node.Properties["OriginStation"].As<string>(),
                             DestinationStation = node.Properties["DestinationStation"].As<string>(),
-                            DepartureTime = DateTime.Parse(node.Properties["DepartureTime"].As<string>()),
-                            ArrivalTime = DateTime.Parse(node.Properties["ArrivalTime"].As<string>()),
+                            DepartureTime = TimeSpan.Parse(node.Properties["DepartureTime"].As<string>()),
+                            ArrivalTime = TimeSpan.Parse(node.Properties["ArrivalTime"].As<string>()),
                             InterludeTimes = node.Properties.ContainsKey("InterludeTimes")
                                 ? node.Properties["InterludeTimes"].As<List<object>>()
-                                    .Select(x => DateTime.Parse(x.ToString()!))
+                                    .Select(x => TimeSpan.Parse(x.ToString()!))
                                     .ToList()
-                                : new List<DateTime>(),
+                                : new List<TimeSpan>(),
                             IsActive = node.Properties["IsActive"].As<bool>()
                         };
                         routes.Add(route);
@@ -115,7 +115,7 @@ namespace perla_metro_route_service.src.repositories
             }
         }
 
-        public async Task<Route?> GetRouteByIdAsync(string id)
+        public async Task<Route?> GetRouteByIdAsync(Guid id)
         {
             var query = @"
                 MATCH (r:Route { Id: $id })
@@ -127,7 +127,7 @@ namespace perla_metro_route_service.src.repositories
                 using var session = _context.GetSession();
                 return await session.ExecuteReadAsync(async tx =>
                 {
-                    var cursor = await tx.RunAsync(query, new { id });
+                    var cursor = await tx.RunAsync(query, new { id = id.ToString() });
                     var records = await cursor.ToListAsync();
 
                     if (records.Count == 0) return null;
@@ -136,13 +136,13 @@ namespace perla_metro_route_service.src.repositories
 
                     return new Route
                     {
-                        Id = node.Properties["Id"].As<string>(),
+                        Id = Guid.Parse(node.Properties["Id"].As<string>()),
                         OriginStation = node.Properties["OriginStation"].As<string>(),
                         DestinationStation = node.Properties["DestinationStation"].As<string>(),
-                        DepartureTime = DateTime.Parse(node.Properties["DepartureTime"].As<string>()),
-                        ArrivalTime = DateTime.Parse(node.Properties["ArrivalTime"].As<string>()),
+                        DepartureTime = TimeSpan.Parse(node.Properties["DepartureTime"].As<string>()),
+                        ArrivalTime = TimeSpan.Parse(node.Properties["ArrivalTime"].As<string>()),
                         InterludeTimes = node.Properties["InterludeTimes"].As<List<object>>()
-                            .Select(x => DateTime.Parse(x.ToString()!))
+                            .Select(x => TimeSpan.Parse(x.ToString()!))
                             .ToList(),
                         IsActive = node.Properties["IsActive"].As<bool>()
                     };
@@ -197,7 +197,7 @@ namespace perla_metro_route_service.src.repositories
                 throw;
             }
         }
-        public async Task DeleteRouteAsync(string id)
+        public async Task DeleteRouteAsync(Guid id)
         {
             var query = @"
                 MATCH (r:Route { Id: $id })
@@ -211,7 +211,7 @@ namespace perla_metro_route_service.src.repositories
                 using var session = _context.GetSession();
                 await session.ExecuteWriteAsync(async tx =>
                 {
-                    await tx.RunAsync(query, new { id, IsActive = false });
+                    await tx.RunAsync(query, new { id = id.ToString(), IsActive = false });
                 });
             }
             catch (Exception ex)

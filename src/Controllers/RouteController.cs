@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using perla_metro_route_service.src.DTO;
 using perla_metro_route_service.src.Interfaces;
+using Route = perla_metro_route_service.src.Models.Route;
 
 namespace perla_metro_route_service.src.Controllers
 {
@@ -30,6 +32,29 @@ namespace perla_metro_route_service.src.Controllers
                 return BadRequest(e.Message);
             }
 
+        }
+        [HttpPost]
+        public async Task<IActionResult> CreateRoute([FromBody] CreateRoute createRoute)
+        {
+            try
+            {
+                var route = new Route
+                {
+                    Id = Guid.NewGuid(),
+                    OriginStation = createRoute.OriginStation,
+                    DestinationStation = createRoute.DestinationStation,
+                    DepartureTime = createRoute.DepartureTime,
+                    ArrivalTime = createRoute.ArrivalTime,
+                    InterludeTimes = createRoute.InterludeTimes,
+                    IsActive = true
+                };
+                await _routeRepository.CreateRouteAsync(route);
+                return Ok(route);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(e.Message);
+            }
         }
     }
 }

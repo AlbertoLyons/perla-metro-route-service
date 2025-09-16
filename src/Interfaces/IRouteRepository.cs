@@ -7,8 +7,8 @@ namespace perla_metro_route_service.src.Interfaces
         Task CreateConstraintsAsync();
         Task CreateRouteAsync(Route route);
         Task<List<Route>> GetAllRoutesAsync();
-        Task<Route?> GetRouteByIdAsync(string id);
+        Task<Route?> GetRouteByIdAsync(Guid id);
         Task UpdateRouteAsync(Route route);
-        Task DeleteRouteAsync(string id);
+        Task DeleteRouteAsync(Guid id);
     }
 }
