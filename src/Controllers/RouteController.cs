@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using perla_metro_route_service.src.DTO;
 using perla_metro_route_service.src.Interfaces;
@@ -46,9 +42,26 @@ namespace perla_metro_route_service.src.Controllers
                     DepartureTime = createRoute.DepartureTime,
                     ArrivalTime = createRoute.ArrivalTime,
                     InterludeTimes = createRoute.InterludeTimes,
-                    IsActive = true
+                    IsActive = createRoute.IsActive
                 };
                 await _routeRepository.CreateRouteAsync(route);
+                return Ok(route);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(e.Message);
+            }
+        }
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetRouteById(Guid id)
+        {
+            try
+            {
+                var route = await _routeRepository.GetRouteByIdAsync(id);
+                if (route == null)
+                {
+                    return NotFound();
+                }
                 return Ok(route);
             }
             catch (Exception e)

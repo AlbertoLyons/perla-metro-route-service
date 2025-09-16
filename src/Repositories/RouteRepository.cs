@@ -2,6 +2,7 @@ using Neo4j.Driver;
 using perla_metro_route_service.src.Interfaces;
 using perla_metro_route_service.src.data;
 using Route = perla_metro_route_service.src.Models.Route;
+using perla_metro_route_service.src.DTO;
 
 namespace perla_metro_route_service.src.repositories
 {
@@ -115,7 +116,7 @@ namespace perla_metro_route_service.src.repositories
             }
         }
 
-        public async Task<Route?> GetRouteByIdAsync(Guid id)
+        public async Task<GetRouteById?> GetRouteByIdAsync(Guid id)
         {
             var query = @"
                 MATCH (r:Route { Id: $id })
@@ -133,18 +134,15 @@ namespace perla_metro_route_service.src.repositories
                     if (records.Count == 0) return null;
 
                     var node = records[0]["r"].As<INode>();
-
-                    return new Route
+                    if (node.Properties["IsActive"].As<bool>() == false) return null;
+                    if (node == null) return null;
+                    return new GetRouteById
                     {
                         Id = Guid.Parse(node.Properties["Id"].As<string>()),
                         OriginStation = node.Properties["OriginStation"].As<string>(),
                         DestinationStation = node.Properties["DestinationStation"].As<string>(),
                         DepartureTime = TimeSpan.Parse(node.Properties["DepartureTime"].As<string>()),
                         ArrivalTime = TimeSpan.Parse(node.Properties["ArrivalTime"].As<string>()),
-                        InterludeTimes = node.Properties["InterludeTimes"].As<List<object>>()
-                            .Select(x => TimeSpan.Parse(x.ToString()!))
-                            .ToList(),
-                        IsActive = node.Properties["IsActive"].As<bool>()
                     };
                 });
             } catch (Exception ex)
