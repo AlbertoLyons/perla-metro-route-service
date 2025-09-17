@@ -17,13 +17,22 @@ builder.Services.AddSingleton<IRouteRepository, RouteRepository>(sp =>
     return new RouteRepository(context);
 });
 
-builder.Services.AddSingleton(sp =>
+try
+{
+    builder.Services.AddSingleton(sp =>
     new DataContext(
         Environment.GetEnvironmentVariable("NEO4J_URI") ?? "neo4j://localhost:7687",
         Environment.GetEnvironmentVariable("NEO4J_USER") ?? "neo4j",
         Environment.GetEnvironmentVariable("NEO4J_PASSWORD") ?? "12345678"
     )
 );
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Error initializing DataContext: {ex.Message}");
+    throw;
+}
+
 
 
 builder.Services.AddScoped<DataSeeder>();

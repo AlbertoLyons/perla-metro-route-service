@@ -116,7 +116,7 @@ namespace perla_metro_route_service.src.repositories
             }
         }
 
-        public async Task<GetRouteById?> GetRouteByIdAsync(Guid id)
+        public async Task<Route?> GetRouteByIdAsync(Guid id)
         {
             var query = @"
                 MATCH (r:Route { Id: $id })
@@ -136,13 +136,19 @@ namespace perla_metro_route_service.src.repositories
                     var node = records[0]["r"].As<INode>();
                     if (node.Properties["IsActive"].As<bool>() == false) return null;
                     if (node == null) return null;
-                    return new GetRouteById
+                    return new Route
                     {
                         Id = Guid.Parse(node.Properties["Id"].As<string>()),
                         OriginStation = node.Properties["OriginStation"].As<string>(),
                         DestinationStation = node.Properties["DestinationStation"].As<string>(),
                         DepartureTime = TimeSpan.Parse(node.Properties["DepartureTime"].As<string>()),
                         ArrivalTime = TimeSpan.Parse(node.Properties["ArrivalTime"].As<string>()),
+                        InterludeTimes = node.Properties.ContainsKey("InterludeTimes")
+                            ? node.Properties["InterludeTimes"].As<List<object>>()
+                                .Select(x => TimeSpan.Parse(x.ToString()!))
+                                .ToList()
+                            : new List<TimeSpan>(),
+                        IsActive = node.Properties["IsActive"].As<bool>()
                     };
                 });
             } catch (Exception ex)
@@ -177,7 +183,7 @@ namespace perla_metro_route_service.src.repositories
                 {
                     await tx.RunAsync(query, new
                     {
-                        route.Id,
+                        Id = route.Id.ToString(),
                         route.OriginStation,
                         route.DestinationStation,
                         DepartureTime = route.DepartureTime.Hours + ":" + route.DepartureTime.Minutes,
@@ -222,6 +228,23 @@ namespace perla_metro_route_service.src.repositories
                 throw;
             }
         }
+        public async Task<bool> ExistsStationAsync(string stationName)
+        {
+            var query = @"
+                MATCH (r:Route)
+                WHERE r.OriginStation = $stationName OR r.DestinationStation = $stationName
+                RETURN COUNT(r) > 0 AS stationExists
+            ";
+
+            using var session = _context.GetSession();
+            return await session.ExecuteReadAsync(async tx =>
+            {
+                var cursor = await tx.RunAsync(query, new { stationName });
+                var record = await cursor.SingleAsync();
+                return record["stationExists"].As<bool>();
+            });
+        }
+
         public void Dispose()
         {
             _context?.Dispose();
