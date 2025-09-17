@@ -4,6 +4,7 @@ using perla_metro_route_service.src.Interfaces;
 using perla_metro_route_service.src.repositories;
 using perla_metro_route_service.src.Data;
 
+// Load environment variables from .env file
 Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);

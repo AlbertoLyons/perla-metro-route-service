@@ -26,11 +26,11 @@ restore:
 
 # Start Neo4j container
 db-up:
-	@echo "$(GREEN)Starting Neo4j container...$(NC)"
+	@echo "$(GREEN)Starting Neo4j container with user neo4j and password 12345678...$(NC)"
 	@docker run --name db-neo4j -e NEO4J_AUTH=neo4j/12345678 -p 7687:7687 -d neo4j:latest || \
 	(echo "$(YELLOW)Container already exists, starting...$(NC)" && docker start db-neo4j)
 	@echo "$(YELLOW)Waiting for Neo4j to be ready...$(NC)"
-	@$(SLEEP) 5
+	@powershell -Command "Start-Sleep" 5
 	@echo "$(GREEN)Neo4j is ready$(NC)"
 
 # Stop Neo4j container
