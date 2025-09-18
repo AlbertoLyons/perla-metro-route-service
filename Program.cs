@@ -41,7 +41,6 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 var extractedApiKey = Environment.GetEnvironmentVariable("API_KEY");
-Console.WriteLine($"Extracted API Key: {extractedApiKey}");
 // Middleware to check for API key in request headers
 app.Use(async (context, next) =>
 {
