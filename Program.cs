@@ -20,9 +20,9 @@ builder.Services.AddSingleton<IRouteRepository, RouteRepository>(sp =>
 // Register the DataContext as a singleton service with configuration from environment variables
 builder.Services.AddSingleton(sp =>
 new DataContext(
-    Environment.GetEnvironmentVariable("NEO4J_URI") ?? "neo4j://localhost:7687",
-    Environment.GetEnvironmentVariable("NEO4J_USER") ?? "neo4j",
-    Environment.GetEnvironmentVariable("NEO4J_PASSWORD") ?? "12345678"
+    Environment.GetEnvironmentVariable("NEO4J_URI") ?? throw new ArgumentNullException("NEO4J_URI"),
+    Environment.GetEnvironmentVariable("NEO4J_USER") ?? throw new ArgumentNullException("NEO4J_USER"),
+    Environment.GetEnvironmentVariable("NEO4J_PASSWORD") ?? throw new ArgumentNullException("NEO4J_PASSWORD")
 )
 );
 // Register the DataSeeder as a scoped service
@@ -39,6 +39,22 @@ builder.Services.AddCors(options =>
 });
 // Build the web application
 var app = builder.Build();
+
+var extractedApiKey = Environment.GetEnvironmentVariable("API_KEY");
+Console.WriteLine($"Extracted API Key: {extractedApiKey}");
+// Middleware to check for API key in request headers
+app.Use(async (context, next) =>
+{
+    if (!context.Request.Headers.TryGetValue("x-api-key", out var apiKey) || apiKey != extractedApiKey)
+    {
+        context.Response.StatusCode = 401; // Unauthorized
+        await context.Response.WriteAsync("API Key was not provided or invalid.");
+        return;
+    }
+    await next();
+});
+
+
 // Configure the HTTP request pipeline for development environment
 if (app.Environment.IsDevelopment())
 {
