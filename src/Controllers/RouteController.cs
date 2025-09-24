@@ -110,7 +110,7 @@ namespace perla_metro_route_service.src.Controllers
                 // If the route is not found, return a 404 Not Found status
                 if (route == null)
                 {
-                    return NotFound();
+                    return NotFound("Route not found.");
                 }
                 // Map the Route entity to a RouteDTO
                 var routeDTO = route.RouteToGetByIdDTO();
@@ -193,7 +193,7 @@ namespace perla_metro_route_service.src.Controllers
                 // If the route is not found, return a 404 Not Found status
                 if (existingRoute == null)
                 {
-                    return NotFound();
+                    return NotFound("Route not found.");
                 }
                 // Delete the route using soft delete by only setting IsActive to false
                 await _routeRepository.DeleteRouteAsync(id);
