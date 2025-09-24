@@ -2,7 +2,7 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /route-service-app
 
 EXPOSE 80
-EXPOSE 5000
+EXPOSE 5003
 
 # COPY csproj and restore as distinct layers
 COPY ./*csproj ./

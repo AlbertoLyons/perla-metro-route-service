@@ -3,7 +3,7 @@ services:
   route-service:
     build: .
     ports:
-      - "5000:5000"
+      - "5003:5003"
     environment:
       - NEO4J_USER=${NEO4J_USER}
       - NEO4J_PASSWORD=${NEO4J_PASSWORD}
