@@ -51,16 +51,16 @@ namespace perla_metro_route_service.src.repositories
         {
             // Cypher query to create a new Route node
             var query = @"
-                CREATE (r:Route {
+                MERGE (o:Station {name: $OriginStation})
+                MERGE (d:Station {name: $DestinationStation})
+                CREATE (o)-[:Route {
                     Id: $Id,
-                    OriginStation: $OriginStation,
-                    DestinationStation: $DestinationStation,
                     DepartureTime: $DepartureTime,
                     ArrivalTime: $ArrivalTime,
                     InterludeTimes: $InterludeTimes,
                     IsActive: $IsActive
-                })
-                RETURN r
+                }]->(d)
+                RETURN o, d
             ";
             try
             {
@@ -68,17 +68,14 @@ namespace perla_metro_route_service.src.repositories
                 using var session = _context.GetSession();
                 await session.ExecuteWriteAsync(async tx =>
                 {
-                    // Execute the query with parameters
                     await tx.RunAsync(query, new
                     {
-                        // Ensures the Id is stored as a string because Neo4j does not support Guid natively
                         Id = route.Id.ToString(),
                         route.OriginStation,
                         route.DestinationStation,
-                        // Store TimeSpan as string in "HH:mm" format
-                        DepartureTime = route.DepartureTime.Hours + ":" + route.DepartureTime.Minutes,
-                        ArrivalTime = route.ArrivalTime.Hours + ":" + route.ArrivalTime.Minutes,
-                        InterludeTimes = route.InterludeTimes.Select(t => t.Hours + ":" + t.Minutes).ToList(),
+                        DepartureTime = $"{route.DepartureTime.Hours:D2}:{route.DepartureTime.Minutes:D2}",
+                        ArrivalTime = $"{route.ArrivalTime.Hours:D2}:{route.ArrivalTime.Minutes:D2}",
+                        InterludeTimes = route.InterludeTimes.Select(t => $"{t.Hours:D2}:{t.Minutes:D2}").ToList(),
                         route.IsActive
                     });
                 });
@@ -101,7 +98,10 @@ namespace perla_metro_route_service.src.repositories
         public async Task<List<Route>> GetAllRoutesAsync()
         {
             // Cypher query to retrieve all Route nodes
-            var query = @"MATCH (r:Route) RETURN r";
+            var query = @"
+                MATCH (o:Station)-[r:Route]->(d:Station)
+                RETURN r, o.name AS OriginStation, d.name AS DestinationStation
+            ";            
             try
             {
                 // Retrieve the routes from the database
@@ -116,13 +116,13 @@ namespace perla_metro_route_service.src.repositories
                     // Convert each record to a Route object
                     foreach (var record in records)
                     {
-                        var node = record["r"].As<INode>();
+                        var node = record["r"].As<IRelationship>();
                         var route = new Route
                         {
                             // Parse the Id back to Guid
                             Id = Guid.Parse(node.Properties["Id"].As<string>()),
-                            OriginStation = node.Properties["OriginStation"].As<string>(),
-                            DestinationStation = node.Properties["DestinationStation"].As<string>(),
+                            OriginStation = record["OriginStation"].As<string>(),
+                            DestinationStation = record["DestinationStation"].As<string>(),
                             // Parse the Departure and Arrival times back to TimeSpan
                             DepartureTime = TimeSpan.Parse(node.Properties["DepartureTime"].As<string>()),
                             ArrivalTime = TimeSpan.Parse(node.Properties["ArrivalTime"].As<string>()),
@@ -160,8 +160,8 @@ namespace perla_metro_route_service.src.repositories
         {
             // Cypher query to retrieve a Route node by Id
             var query = @"
-                MATCH (r:Route { Id: $id })
-                RETURN r
+                MATCH (o:Station)-[r:Route {Id: $Id}]->(d:Station)
+                RETURN r, o AS OriginNode, d AS DestinationNode
             ";
             try
             {
@@ -170,24 +170,24 @@ namespace perla_metro_route_service.src.repositories
                 return await session.ExecuteReadAsync(async tx =>
                 {
                     // Execute the query
-                    var cursor = await tx.RunAsync(query, new { id = id.ToString() });
-                    var records = await cursor.ToListAsync();
+                    var cursor = await tx.RunAsync(query, new { Id = id.ToString() });
+                    var record = await cursor.SingleAsync();
 
                     // If no records found, return null
-                    if (records.Count == 0) return null;
+                    if (record == null) return null;
 
                     // Convert the record to a Route object
-                    var node = records[0]["r"].As<INode>();
+                    var node = record["r"].As<IRelationship>();
+                    var originNode = record["OriginNode"].As<INode>();
+                    var destinationNode = record["DestinationNode"].As<INode>();
                     if (node.Properties["IsActive"].As<bool>() == false) return null;
-                    if (node == null) return null;
-
                     // Map the node properties to a Route object
                     return new Route
                     {
                         // Parse the Id back to Guid
                         Id = Guid.Parse(node.Properties["Id"].As<string>()),
-                        OriginStation = node.Properties["OriginStation"].As<string>(),
-                        DestinationStation = node.Properties["DestinationStation"].As<string>(),
+                        OriginStation = originNode.Properties["name"].As<string>(),
+                        DestinationStation = destinationNode.Properties["name"].As<string>(),
                         // Parse the Departure and Arrival times back to TimeSpan
                         DepartureTime = TimeSpan.Parse(node.Properties["DepartureTime"].As<string>()),
                         ArrivalTime = TimeSpan.Parse(node.Properties["ArrivalTime"].As<string>()),
@@ -220,14 +220,18 @@ namespace perla_metro_route_service.src.repositories
         {
             // Cypher query to update an existing Route node
             var query = @"
-                MATCH (r:Route { Id: $Id })
-                SET r.OriginStation = $OriginStation,
-                    r.DestinationStation = $DestinationStation,
-                    r.DepartureTime = $DepartureTime,
-                    r.ArrivalTime = $ArrivalTime,
-                    r.InterludeTimes = $InterludeTimes,
-                    r.IsActive = $IsActive
-                RETURN r
+                MATCH (oldOrigin:Station)-[r:Route {Id: $Id}]->(oldDestination:Station)
+                MERGE (newOrigin:Station {name: $NewOriginStation})
+                MERGE (newDestination:Station {name: $NewDestinationStation})
+                CREATE (newOrigin)-[newR:Route {
+                    Id: r.Id,
+                    DepartureTime: $DepartureTime,
+                    ArrivalTime: $ArrivalTime,
+                    InterludeTimes: $InterludeTimes,
+                    IsActive: $IsActive
+                }]->(newDestination)
+                DELETE r
+                RETURN newR, newOrigin AS OriginNode, newDestination AS DestinationNode
             ";
             try
             {
@@ -236,18 +240,21 @@ namespace perla_metro_route_service.src.repositories
                 // Update the route in the database
                 await session.ExecuteWriteAsync(async tx =>
                 {
-                    await tx.RunAsync(query, new
+                    // Create or merge the new origin and destination stations if they don't exist
+                    // Then create the new Route relationship and delete the old one
+                    var cursor  = await tx.RunAsync(query, new
                     {
-                        // Ensure the Id is stored as a string
                         Id = route.Id.ToString(),
-                        route.OriginStation,
-                        route.DestinationStation,
-                        // Store TimeSpan as string in "HH:mm" format
-                        DepartureTime = route.DepartureTime.Hours + ":" + route.DepartureTime.Minutes,
-                        ArrivalTime = route.ArrivalTime.Hours + ":" + route.ArrivalTime.Minutes,
-                        InterludeTimes = route.InterludeTimes.Select(t => t.Hours + ":" + t.Minutes).ToList(),
+                        NewOriginStation = route.OriginStation,
+                        NewDestinationStation = route.DestinationStation,
+                        DepartureTime = route.DepartureTime.ToString(@"hh\:mm"),
+                        ArrivalTime = route.ArrivalTime.ToString(@"hh\:mm"),
+                        InterludeTimes = route.InterludeTimes.Select(t => t.ToString(@"hh\:mm")).ToList(),
                         route.IsActive
                     });
+
+                    var record = await cursor.SingleAsync();
+                    if (record == null) throw new Exception("Route update failed.");
                 });
             }
             // Handle exceptions, such as route not found
@@ -270,7 +277,7 @@ namespace perla_metro_route_service.src.repositories
         {
             // Cypher query to "delete" a Route node by setting IsActive to false (Soft Delete)
             var query = @"
-                MATCH (r:Route { Id: $id })
+                MATCH (o:Station)-[r:Route {Id: $Id}]->(d:Station)
                 SET r.IsActive = $IsActive
                 RETURN r
             ";
@@ -281,7 +288,7 @@ namespace perla_metro_route_service.src.repositories
                 // "Delete" the route by setting IsActive to false
                 await session.ExecuteWriteAsync(async tx =>
                 {
-                    await tx.RunAsync(query, new { id = id.ToString(), IsActive = false });
+                    await tx.RunAsync(query, new { Id = id.ToString(), IsActive = false });
                 });
             }
             // Handle exceptions, such as route not found
@@ -298,24 +305,24 @@ namespace perla_metro_route_service.src.repositories
         /// <summary>
         /// Checks if any route exists with the given station name as either origin or destination.
         /// </summary>
-        /// <param name="stationName"></param>
+        /// <param name="originStation">The name of the origin station to check.</param>
+        /// <param name="destinationStation">The name of the destination station to check.</param>
         /// <returns>True if such a route exists; otherwise, false.</returns>
-        public async Task<bool> ExistsStationAsync(string stationName)
+        public async Task<bool> ExistsRouteAsync(string originStation, string destinationStation)
         {
             // Cypher query to check if any Route node exists with the given station name
             var query = @"
-                MATCH (r:Route)
-                WHERE r.OriginStation = $stationName OR r.DestinationStation = $stationName
-                RETURN COUNT(r) > 0 AS stationExists
+            MATCH (o:Station {name: $OriginStation})-[r:Route]->(d:Station {name: $DestinationStation})
+            RETURN COUNT(r) > 0 AS exists
             ";
             // Get a session for database interaction
             using var session = _context.GetSession();
             // Execute the query and return the result
             return await session.ExecuteReadAsync(async tx =>
             {
-                var cursor = await tx.RunAsync(query, new { stationName });
+                var cursor = await tx.RunAsync(query, new { OriginStation = originStation, DestinationStation = destinationStation });
                 var record = await cursor.SingleAsync();
-                return record["stationExists"].As<bool>();
+                return record["exists"].As<bool>();
             });
         }
         /// <summary>

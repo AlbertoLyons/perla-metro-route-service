@@ -37,10 +37,11 @@ namespace perla_metro_route_service.src.Interfaces
         /// <param name="id">The unique identifier in UUID V4 format of the route.</param>
         Task DeleteRouteAsync(Guid id);
         /// <summary>
-        /// Verifies if the station of a route exists.
+        /// Verifies if a route is similar to an existing route.
         /// </summary>
-        /// <param name="stationName">The name of the station to check.</param>
-        /// <returns>True if the station exists, otherwise false.</returns>
-        Task<bool> ExistsStationAsync(string stationName);
+        /// <param name="originStation">The name of the origin station to check.</param>
+        /// <param name="destinationStation">The name of the destination station to check.</param>
+        /// <returns>True if the route exists, otherwise false.</returns>
+        Task<bool> ExistsRouteAsync(string originStation, string destinationStation);
     }
 }

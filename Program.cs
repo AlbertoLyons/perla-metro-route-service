@@ -39,7 +39,7 @@ builder.Services.AddCors(options =>
 });
 // Build the web application
 var app = builder.Build();
-
+/*
 var extractedApiKey = Environment.GetEnvironmentVariable("API_KEY");
 // Middleware to check for API key in request headers
 app.Use(async (context, next) =>
@@ -52,7 +52,7 @@ app.Use(async (context, next) =>
     }
     await next();
 });
-
+*/
 
 // Configure the HTTP request pipeline for development environment
 if (app.Environment.IsDevelopment())

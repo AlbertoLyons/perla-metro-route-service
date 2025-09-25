@@ -58,11 +58,10 @@ namespace perla_metro_route_service.src.Controllers
         {
             try
             {
-                // Check if either the origin or destination station already exists
-                if (await _routeRepository.ExistsStationAsync(createRoute.OriginStation) ||
-                    await _routeRepository.ExistsStationAsync(createRoute.DestinationStation))
+                // Check if a similar route already exists
+                if (await _routeRepository.ExistsRouteAsync(createRoute.OriginStation, createRoute.DestinationStation))
                 {
-                    return BadRequest("One or both stations exists. Please choose different stations.");
+                    return BadRequest("There is a identical route existing. Please choose different stations.");
                 }
                 // Check if origin and destination stations are the same
                 if (createRoute.OriginStation == createRoute.DestinationStation)
@@ -139,13 +138,12 @@ namespace perla_metro_route_service.src.Controllers
                 // If the route is not found, return a 404 Not Found status
                 if (existingRoute == null)
                 {
-                    return NotFound();
+                    return NotFound("Route not found.");
                 }
-                // Check if either the origin or destination station already exists
-                if (await _routeRepository.ExistsStationAsync(updateRoute.OriginStation) ||
-                    await _routeRepository.ExistsStationAsync(updateRoute.DestinationStation))
+                // Check if a identical route already exists with the new origin and destination stations
+                if (await _routeRepository.ExistsRouteAsync(updateRoute.OriginStation, updateRoute.DestinationStation))
                 {
-                    return BadRequest("One or both stations exists. Please choose different stations.");
+                    return BadRequest("There is a identical route existing. Please choose different stations.");
                 }
                 // Check if origin and destination stations are the same
                 if (updateRoute.OriginStation == updateRoute.DestinationStation)
@@ -165,6 +163,7 @@ namespace perla_metro_route_service.src.Controllers
                         return BadRequest("Interlude times must be between departure and arrival times.");
                     }
                 }
+                Console.WriteLine("Validation passed, updating route...");
                 // Map the UpdateRoute DTO to the existing Route entity
                 var updatedRoute = existingRoute.UpdatedToRoute(updateRoute);
                 // Save the updated route to the repository
